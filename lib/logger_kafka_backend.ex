@@ -10,7 +10,7 @@ defmodule LoggerKafkaBackend do
   @type metadata  :: [atom]
 
 
-  @default_format ~s|{time: "$time", level: "$level", message: "$message"}|
+  @default_format ~s|{time: "$date $time", meta: "$metadata", level: "$level", message: "$message"}|
 
   def init({__MODULE__, name}) do
     {:ok, configure(name, [])}
@@ -63,21 +63,18 @@ defmodule LoggerKafkaBackend do
     {:ok, state}
   end
 
-  defp log_event(level, msg, ts, md, %{brokers: brokers, topic: topic, partition: partition} = state) when is_list(brokers) and is_list(topic) and is_integer(partition) do
+  defp log_event(level, msg, ts, md, %{brokers: brokers, topic: topic, partition: partition} = state) when is_list(brokers) and is_binary(topic) and is_integer(partition) do
     if length(brokers)>0 and topic != "" do
       output = format_event(level, msg, ts, md, state)
       # keys? - better than "LoggerKafkaBackend"...
-      case :brod.produce_sync(:lkb_bc,state.topic,state.partition,"LoggerKafkaBackend",output) do
-        {:ok, _produce_reference} -> {:ok, state}
-        err -> IO.puts("error detected: #{inspect err}")
-               {:ok,state}
-      end
+      :brod.produce_sync(:lkb_bc,state.topic,state.partition,"LoggerKafkaBackend",to_string(output))
+      {:ok, state}
     else
       log_event(level, msg, ts, md, %{state | brokers: nil})
     end
   end
 
-  defp log_event(level, msg, ts, md, %{brokers: brokers, topic: topic} = state) when is_list(brokers) and is_list(topic) do
+  defp log_event(level, msg, ts, md, %{brokers: brokers, topic: topic} = state) when is_list(brokers) and is_binary(topic) do
     if length(brokers)>0 and topic != "" do
      log_event(level, msg, ts, md, %{state | partition: 0})
     else
@@ -140,7 +137,7 @@ defmodule LoggerKafkaBackend do
     if brokers != nil and is_list(brokers) and length(brokers) > 0 do
       erl_brokers=Enum.map(brokers,fn(e) -> {to_char_list(elem(e,0)),elem(e,1)} end)
       if topic != nil do
-        erl_topic=to_char_list(topic)
+        erl_topic = to_string(topic)
         last_error=case :brod.start_client(erl_brokers, :lkb_bc, [{:reconnect_cool_down_seconds, 10}]) do # TODO: make client options configurable
           :ok -> # start a producer on it, should always be ok...
             case :brod.start_producer(:lkb_bc, erl_topic, []) do # TODO: make producer options configurable
@@ -159,9 +156,10 @@ defmodule LoggerKafkaBackend do
           err -> inspect err
         end
       end
+      topic=erl_topic
     end
 
-    %{state | name: name, brokers: erl_brokers, topic: erl_topic, partition: partition, last_error: last_error, format: format, level: level, metadata: metadata, metadata_filter: metadata_filter}
+    %{state | name: name, brokers: erl_brokers, topic: topic, partition: partition, last_error: last_error, format: format, level: level, metadata: metadata, metadata_filter: metadata_filter}
   end
 
 end
