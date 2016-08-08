@@ -10,14 +10,15 @@ defmodule LoggerKafkaBackend do
   @type metadata  :: [atom]
 
 
-  @default_format ~s|{time: "$date $time", meta: "$metadata", level: "$level", message: "$message"}|
+  @default_format ~s|{"time": "$date $time", "meta": "$metadata", "level": "$level", "message": "$message"}|
 
   def init({__MODULE__, name}) do
-    {:ok, configure(name, [])}
+    configure(name, [])
   end
 
   def handle_call({:configure, opts}, %{name: name} = state) do
-    {:ok, :ok, configure(name, opts, state)}
+    {err,state} = configure(name, opts, state)
+    {:ok, err, state}
   end
 
   # returns the configured brokers
@@ -33,6 +34,11 @@ defmodule LoggerKafkaBackend do
   # returns the configured partition
   def handle_call(:partition, %{partition: partition} = state) do
     {:ok, {:ok, partition}, state}
+  end
+
+  # returns the last error registered from Kafka
+  def handle_call(:last_error, %{last_error: err} = state) do
+    {:ok, {:ok, err}, state}
   end
 
   def handle_event({_level, gl, {Logger, _, _, _}}, state)
@@ -67,8 +73,12 @@ defmodule LoggerKafkaBackend do
     if length(brokers)>0 and topic != "" do
       output = format_event(level, msg, ts, md, state)
       # keys? - better than "LoggerKafkaBackend"...
-      :brod.produce_sync(:lkb_bc,state.topic,state.partition,"LoggerKafkaBackend",to_string(output))
-      {:ok, state}
+      case :brod.produce_sync(:lkb_bc,state.topic,state.partition,"LoggerKafkaBackend",to_string(output)) do
+        {:error, {:producer_not_found, _topic}} -> {:ok, %{state | last_error: "producer_not_found, wrong topic"}}
+        {:error, {:producer_not_found, _topic, _partition}} -> {:ok, %{state | last_error: "producer_not_found, wrong partition"}}
+        {:error, :client_down} -> {:ok, %{state | last_error: "client down"}}
+        _ -> {:ok, %{state | last_error: nil}}
+      end
     else
       log_event(level, msg, ts, md, %{state | brokers: nil})
     end
@@ -129,37 +139,30 @@ defmodule LoggerKafkaBackend do
     partition       = Keyword.get(opts, :partition, 0)
     metadata_filter = Keyword.get(opts, :metadata_filter)
 
-    # configure brod - since strings in the broker list could be Elixir string, and brod
-    # needs char_lists, we, as a courtsey convert them to char_lists before entering them
-    # into state.
-    erl_brokers=[]
-    last_error = nil
-    if brokers != nil and is_list(brokers) and length(brokers) > 0 do
-      erl_brokers=Enum.map(brokers,fn(e) -> {to_char_list(elem(e,0)),elem(e,1)} end)
-      if topic != nil do
-        erl_topic = to_string(topic)
-        last_error=case :brod.start_client(erl_brokers, :lkb_bc, [{:reconnect_cool_down_seconds, 10}]) do # TODO: make client options configurable
-          :ok -> # start a producer on it, should always be ok...
-            case :brod.start_producer(:lkb_bc, erl_topic, []) do # TODO: make producer options configurable
-              {:error, :UnknownTopicOrPartition} -> erl_topic = nil
-                                                    "Unknown Topic or Partition"
-              _ -> nil
-            end
-          {:error, {:already_started,_pid}} -> # restart client with new brokerlist
-            :brod.stop_client( :lkb_bc )
-            :brod.start_client(erl_brokers, :lkb_bc, [{:reconnect_cool_down_seconds, 10}])
-            case :brod.start_producer(:lkb_bc, erl_topic, []) do # TODO: make producer options configurable
-              {:error, :UnknownTopicOrPartition} -> erl_topic = nil
-                                                    "Unknown Topic or Partition"
-              _ -> nil
-            end
-          err -> inspect err
+    {eb,le}=case brokers do
+      nil -> {[],:ok} # configure with no brokers is ok.
+      brokers when is_list(brokers) and length(brokers) > 0 ->
+        erl_brokers=Enum.map(brokers,fn(e) -> {to_char_list(elem(e,0)),elem(e,1)} end)
+        last_error=if topic != nil do
+          case :brod.start_client(erl_brokers, :lkb_bc, [{:reconnect_cool_down_seconds, 10}]) do # TODO: make client options configurable
+            :ok -> # start a producer on it, should always be ok...
+              :brod.start_producer(:lkb_bc, to_string(topic), []) # TODO: make producer options configurable
+            {:error, {:already_started,_pid}} -> # restart client with new brokerlist
+              :brod.stop_client( :lkb_bc )
+              case :brod.start_client(erl_brokers, :lkb_bc, [{:reconnect_cool_down_seconds, 10}]) do
+                :ok -> :brod.start_producer(:lkb_bc, to_string(topic), []) # TODO: make producer options configurable
+                err -> err
+              end
+            err -> err
+          end
+        else
+          :ok # topic is nil, which is :ok to configure.
         end
-      end
-      topic=erl_topic
+        {erl_brokers,last_error}
+      _-> {[],{:error,"unknown format of the brokers configutionation parameter"}}
     end
 
-    %{state | name: name, brokers: erl_brokers, topic: topic, partition: partition, last_error: last_error, format: format, level: level, metadata: metadata, metadata_filter: metadata_filter}
+    {le,%{state | name: name, brokers: eb, topic: to_string(topic), partition: partition, last_error: le, format: format, level: level, metadata: metadata, metadata_filter: metadata_filter}}
   end
 
 end
