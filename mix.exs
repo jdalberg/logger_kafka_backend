@@ -17,6 +17,7 @@ defmodule LoggerKafkaBackend.Mixfile do
   defp deps do
     [
      {:brod, "~> 2.1.8"},
+     {:poison, "~> 2.0", only: :test},
      {:meck, "~> 0.8.2", only: :test} # To make test emulate calls to brod
     ]
   end
