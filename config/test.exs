@@ -1,3 +1,3 @@
 use Mix.Config
 
-config :logger, backends: []
+config :logger, backends: [] # otherwise we still get the console logger...
