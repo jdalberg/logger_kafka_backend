@@ -10,7 +10,7 @@ defmodule LoggerKafkaBackend do
   @type metadata  :: [atom]
 
 
-  @default_format ~s|{"time": "$date $time", "meta": "$metadata", "level": "$level", "message": "$message"}|
+  @default_format "$metadata[$date $time] $level: $message"
 
   def init({__MODULE__, name}) do
     configure(name, [])
@@ -34,6 +34,11 @@ defmodule LoggerKafkaBackend do
   # returns the configured partition
   def handle_call(:partition, %{partition: partition} = state) do
     {:ok, {:ok, partition}, state}
+  end
+
+  # returns the configured use_json setting
+  def handle_call(:partition, %{use_json: use_json} = state) do
+    {:ok, {:ok, use_json}, state}
   end
 
   # returns the last error registered from Kafka
@@ -71,7 +76,15 @@ defmodule LoggerKafkaBackend do
 
   defp log_event(level, msg, ts, md, %{brokers: brokers, topic: topic, partition: partition} = state) when is_list(brokers) and is_binary(topic) and is_integer(partition) do
     if length(brokers)>0 and topic != "" do
-      output = format_event(level, msg, ts, md, state)
+      output = if state.use_json do
+        timestamp = case ts do
+          {date,time} -> "#{Logger.Utils.format_date(date)} #{Logger.Utils.format_time(time)}"
+          _ -> "NA"
+        end
+        Poison.encode!(%{time: timestamp, meta: take_metadata(md, state.metadata), level: level, message: msg})
+      else
+        format_event(level, msg, ts, md, state)
+      end
       # keys? - better than "LoggerKafkaBackend"...
       case :brod.produce_sync(:lkb_bc,state.topic,state.partition,"LoggerKafkaBackend",to_string(output)) do
         {:error, {:producer_not_found, _topic}} -> {:ok, %{state | last_error: "producer_not_found, wrong topic"}}
@@ -121,7 +134,7 @@ defmodule LoggerKafkaBackend do
 
 
   defp configure(name, opts) do
-    state = %{name: nil, brokers: [], last_error: nil, topic: nil, partition: nil, format: nil, level: nil, metadata: nil, metadata_filter: nil}
+    state = %{name: nil, brokers: [], last_error: nil, topic: nil, partition: nil, format: nil, level: nil, metadata: nil, metadata_filter: nil, use_json: false}
     configure(name, opts, state)
   end
 
@@ -138,6 +151,7 @@ defmodule LoggerKafkaBackend do
     topic           = Keyword.get(opts, :topic)
     partition       = Keyword.get(opts, :partition, 0)
     metadata_filter = Keyword.get(opts, :metadata_filter)
+    use_json        = Keyword.get(opts, :use_json, true)
 
     {eb,le}=case brokers do
       nil -> {[],:ok} # configure with no brokers is ok.
@@ -162,7 +176,7 @@ defmodule LoggerKafkaBackend do
       _-> {[],{:error,"unknown format of the brokers configutionation parameter"}}
     end
 
-    {le,%{state | name: name, brokers: eb, topic: to_string(topic), partition: partition, last_error: le, format: format, level: level, metadata: metadata, metadata_filter: metadata_filter}}
+    {le,%{state | name: name, brokers: eb, topic: to_string(topic), partition: partition, last_error: le, format: format, level: level, metadata: metadata, metadata_filter: metadata_filter, use_json: use_json}}
   end
 
 end

@@ -22,7 +22,7 @@ defmodule LoggerKafkaBackendTest do
 
       receive do
         {:produce_sync!, time} ->
-          output="{\"time\": \"#{time}\", \"meta\": \"\", \"level\": \"debug\", \"message\": \"foo\"}"
+          output=Poison.encode!(%{time: time, meta: [], level: "debug", message: "foo"})
           assert :meck.called(:brod, :produce_sync, [:lkb_bc, "log", 0, "LoggerKafkaBackend", output])
         err -> flunk( "Received something unexpected from :meck.produce_sync: #{inspect err}" )
       end
@@ -43,7 +43,7 @@ defmodule LoggerKafkaBackendTest do
 
       receive do
         {:produce_sync!, time} ->
-          output="{\"time\": \"#{time}\", \"meta\": \"\", \"level\": \"debug\", \"message\": \"foo\"}"
+          output=Poison.encode!(%{time: time, meta: [], level: "debug", message: "foo"})
           assert :meck.called(:brod, :produce_sync, [:lkb_bc, "log", 0, "LoggerKafkaBackend", output])
         err -> flunk( "Received something unexpected from :meck.produce_sync: #{inspect err}" )
       end
@@ -66,7 +66,7 @@ defmodule LoggerKafkaBackendTest do
 
       receive do
         {:produce_sync!, time} ->
-          output="{\"time\": \"#{time}\", \"meta\": \"\", \"level\": \"debug\", \"message\": \"foo\"}"
+          output=Poison.encode!(%{time: time, meta: [], level: "debug", message: "foo"})
           assert :meck.called(:brod, :produce_sync, [:lkb_bc, "log", 0, "LoggerKafkaBackend", output])
         err -> flunk( "Received something unexpected from :meck.produce_sync: #{inspect err}" )
       end
@@ -89,7 +89,7 @@ defmodule LoggerKafkaBackendTest do
 
       receive do
         {:produce_sync!, time} ->
-          output="{\"time\": \"#{time}\", \"meta\": \"\", \"level\": \"debug\", \"message\": \"foo\"}"
+          output=Poison.encode!(%{time: time, meta: [], level: "debug", message: "foo"})
           assert :meck.called(:brod, :produce_sync, [:lkb_bc, "log", 0, "LoggerKafkaBackend", output])
         err -> flunk( "Received something unexpected from :meck.produce_sync: #{inspect err}" )
       end
