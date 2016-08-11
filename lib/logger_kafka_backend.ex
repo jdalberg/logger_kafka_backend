@@ -74,14 +74,11 @@ defmodule LoggerKafkaBackend do
     {:ok, state}
   end
 
-  defp log_event(level, msg, ts, md, %{brokers: brokers, topic: topic, partition: partition} = state) when is_list(brokers) and is_binary(topic) and is_integer(partition) do
+  defp log_event(level, msg, {date, time} = ts, md, %{brokers: brokers, topic: topic, partition: partition} = state) when is_list(brokers) and is_binary(topic) and is_integer(partition) and is_binary(msg) do
     if length(brokers)>0 and topic != "" do
       output = if state.use_json do
-        timestamp = case ts do
-          {date,time} -> "#{Logger.Utils.format_date(date)} #{Logger.Utils.format_time(time)}"
-          _ -> "NA"
-        end
-        case Poison.encode(%{time: timestamp, meta: Enum.into(take_metadata(md, state.metadata), %{}), level: level, message: msg}) do
+        timestamp = "#{Logger.Utils.format_date(date)} #{Logger.Utils.format_time(time)}"
+        case Poison.encode(%{time: timestamp, meta: Enum.into(take_metadata(md, state.metadata), %{}), level: level, message: to_string(msg)}) do
           {:ok,encoded} -> encoded
           {:error,error} -> "Encode failed: #{inspect error}"
         end
@@ -89,10 +86,11 @@ defmodule LoggerKafkaBackend do
         format_event(level, msg, ts, md, state)
       end
       # keys? - better than "LoggerKafkaBackend"...
-      case :brod.produce_sync(:lkb_bc,state.topic,state.partition,"LoggerKafkaBackend",to_string(output)) do
+      case :brod.produce_sync(:lkb_bc,state.topic,state.partition,"LoggerKafkaBackend",output) do
         {:error, {:producer_not_found, _topic}} -> {:ok, %{state | last_error: "producer_not_found, wrong topic"}}
         {:error, {:producer_not_found, _topic, _partition}} -> {:ok, %{state | last_error: "producer_not_found, wrong partition"}}
         {:error, :client_down} -> {:ok, %{state | last_error: "client down"}}
+        {:error, err} -> {:ok, %{state | last_error: "unhandled error: #{inspect err}"}}
         _ -> {:ok, %{state | last_error: nil}}
       end
     else
