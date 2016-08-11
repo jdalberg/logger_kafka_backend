@@ -74,7 +74,7 @@ defmodule LoggerKafkaBackend do
     {:ok, state}
   end
 
-  defp log_event(level, msg, {date, time} = ts, md, %{brokers: brokers, topic: topic, partition: partition} = state) when is_list(brokers) and is_binary(topic) and is_integer(partition) and is_binary(msg) do
+  defp log_event(level, msg, {date, time} = ts, md, %{brokers: brokers, topic: topic, partition: partition} = state) when is_list(brokers) and is_binary(topic) and is_integer(partition) do
     if length(brokers)>0 and topic != "" do
       output = if state.use_json do
         timestamp = "#{Logger.Utils.format_date(date)} #{Logger.Utils.format_time(time)}"
@@ -104,6 +104,10 @@ defmodule LoggerKafkaBackend do
     else
      log_event(level, msg, ts, md, %{brokers: nil})
     end
+  end
+
+  defp log_event(_level, _msg, _ts, _md, state) do
+    {:ok, state}
   end
 
   defp format_event(level, msg, ts, md, %{format: format, metadata: keys}) do
