@@ -81,7 +81,10 @@ defmodule LoggerKafkaBackend do
           {date,time} -> "#{Logger.Utils.format_date(date)} #{Logger.Utils.format_time(time)}"
           _ -> "NA"
         end
-        Poison.encode!(%{time: timestamp, meta: Enum.into(take_metadata(md, state.metadata), %{}), level: level, message: msg})
+        case Poison.encode(%{time: timestamp, meta: Enum.into(take_metadata(md, state.metadata), %{}), level: level, message: msg}) do
+          {:ok,encoded} -> encoded
+          {:error,error} -> "Encode failed: #{inspect error}"
+        end
       else
         format_event(level, msg, ts, md, state)
       end
