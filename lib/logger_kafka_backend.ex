@@ -86,7 +86,7 @@ defmodule LoggerKafkaBackend do
         format_event(level, msg, ts, md, state)
       end
       # keys? - better than "LoggerKafkaBackend"...
-      case :brod.produce_sync(:lkb_bc,state.topic,state.partition,"LoggerKafkaBackend",output) do
+      case :brod.produce_sync(:lkb_bc,state.topic,state.partition, kafka_key(md), output) do
         {:error, {:producer_not_found, _topic}} -> {:ok, %{state | last_error: "producer_not_found, wrong topic"}}
         {:error, {:producer_not_found, _topic, _partition}} -> {:ok, %{state | last_error: "producer_not_found, wrong partition"}}
         {:error, :client_down} -> {:ok, %{state | last_error: "client down"}}
@@ -137,6 +137,12 @@ defmodule LoggerKafkaBackend do
     Enum.reverse(metadatas)
   end
 
+  defp kafka_key( md ) do
+    case take_metadata( md, [:kafka_key] ) do
+      [kafka_key: key] -> key
+      _ -> "LoggerKafkaBackend"
+    end
+  end
 
   defp configure(name, opts) do
     state = %{name: nil, brokers: [], last_error: nil, topic: nil, partition: nil, format: nil, level: nil, metadata: nil, metadata_filter: nil, use_json: false}
@@ -170,15 +176,15 @@ defmodule LoggerKafkaBackend do
               :brod.stop_client( :lkb_bc )
               case :brod.start_client(erl_brokers, :lkb_bc, [{:reconnect_cool_down_seconds, 10}]) do
                 :ok -> :brod.start_producer(:lkb_bc, to_string(topic), []) # TODO: make producer options configurable
-                err -> err
+                err -> "2nd start_client error: #{inspect err}"
               end
-            err -> err
+            err -> "start_client error: #{inspect err}"
           end
         else
           :ok # topic is nil, which is :ok to configure.
         end
         {erl_brokers,last_error}
-      _-> {[],{:error,"unknown format of the brokers configutionation parameter"}}
+      _-> {[],{:error,"unknown format of the brokers configuration parameter"}}
     end
 
     {le,%{state | name: name, brokers: eb, topic: to_string(topic), partition: partition, last_error: le, format: format, level: level, metadata: metadata, metadata_filter: metadata_filter, use_json: use_json}}

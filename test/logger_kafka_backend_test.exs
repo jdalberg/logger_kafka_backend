@@ -5,9 +5,31 @@ defmodule LoggerKafkaBackendTest do
   import TestHelpers
 
   @backend {LoggerKafkaBackend, :test_backend}
+  @moduletag timeout: 4000
 
   Logger.add_backend @backend
 
+  test "with meta kafka_key set" do
+    normal_start([{'b1',9092},{'b2',9092}], "log", 0) do
+      home=self
+      :meck.expect(:brod, :produce_sync, fn(_clientname, _topic, _partition, _key, output) ->
+        # get the timestamp...
+        dec=Poison.decode!(output)
+        send home, {:produce_sync!,dec["time"]}
+        :ok
+      end)
+
+      Logger.metadata([kafka_key: "topic_key"])
+      Logger.debug "foo with meta kafka_key set"
+
+      receive do
+        {:produce_sync!, time} ->
+          output=Poison.encode!(%{time: time, meta: %{}, level: "debug", message: "foo with meta kafka_key set"})
+          assert :meck.called(:brod, :produce_sync, [:lkb_bc, "log", 0, "topic_key", output])
+        err -> flunk( "Received something unexpected from :meck.produce_sync: #{inspect err}" )
+      end
+    end
+  end
   test "no trouble produce" do
     normal_start([{'b1',9092},{'b2',9092}], "log", 0) do
       home=self
@@ -18,11 +40,11 @@ defmodule LoggerKafkaBackendTest do
         :ok
       end)
 
-      Logger.debug "foo"
+      Logger.debug "foo no trouble produce"
 
       receive do
         {:produce_sync!, time} ->
-          output=Poison.encode!(%{time: time, meta: %{}, level: "debug", message: "foo"})
+          output=Poison.encode!(%{time: time, meta: %{}, level: "debug", message: "foo no trouble produce"})
           assert :meck.called(:brod, :produce_sync, [:lkb_bc, "log", 0, "LoggerKafkaBackend", output])
         err -> flunk( "Received something unexpected from :meck.produce_sync: #{inspect err}" )
       end
@@ -39,11 +61,11 @@ defmodule LoggerKafkaBackendTest do
         send home, {:produce_sync!,dec["time"]}
         {:error,{:producer_not_found,"log"}} end)
 
-      Logger.debug "foo"
+      Logger.debug "foo produce with trouble, wrong topic"
 
       receive do
         {:produce_sync!, time} ->
-          output=Poison.encode!(%{time: time, meta: %{}, level: "debug", message: "foo"})
+          output=Poison.encode!(%{time: time, meta: %{}, level: "debug", message: "foo produce with trouble, wrong topic"})
           assert :meck.called(:brod, :produce_sync, [:lkb_bc, "log", 0, "LoggerKafkaBackend", output])
         err -> flunk( "Received something unexpected from :meck.produce_sync: #{inspect err}" )
       end
@@ -62,11 +84,11 @@ defmodule LoggerKafkaBackendTest do
         send home, {:produce_sync!,dec["time"]}
         {:error,{:producer_not_found,"log",0}} end)
 
-      Logger.debug "foo"
+      Logger.debug "foo produce with trouble, wrong partition"
 
       receive do
         {:produce_sync!, time} ->
-          output=Poison.encode!(%{time: time, meta: %{}, level: "debug", message: "foo"})
+          output=Poison.encode!(%{time: time, meta: %{}, level: "debug", message: "foo produce with trouble, wrong partition"})
           assert :meck.called(:brod, :produce_sync, [:lkb_bc, "log", 0, "LoggerKafkaBackend", output])
         err -> flunk( "Received something unexpected from :meck.produce_sync: #{inspect err}" )
       end
@@ -85,11 +107,11 @@ defmodule LoggerKafkaBackendTest do
         send home, {:produce_sync!,dec["time"]}
         {:error,:client_down} end)
 
-      Logger.debug "foo"
+      Logger.debug "foo produce with trouble, client down"
 
       receive do
         {:produce_sync!, time} ->
-          output=Poison.encode!(%{time: time, meta: %{}, level: "debug", message: "foo"})
+          output=Poison.encode!(%{time: time, meta: %{}, level: "debug", message: "foo produce with trouble, client down"})
           assert :meck.called(:brod, :produce_sync, [:lkb_bc, "log", 0, "LoggerKafkaBackend", output])
         err -> flunk( "Received something unexpected from :meck.produce_sync: #{inspect err}" )
       end
