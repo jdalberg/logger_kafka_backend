@@ -11,7 +11,7 @@ defmodule LoggerKafkaBackendTest do
 
   test "with meta kafka_key set" do
     normal_start([{'b1',9092},{'b2',9092}], "log", 0) do
-      home=self
+      home=self()
       :meck.expect(:brod, :produce_sync, fn(_clientname, _topic, _partition, _key, output) ->
         # get the timestamp...
         dec=Poison.decode!(output)
@@ -32,7 +32,7 @@ defmodule LoggerKafkaBackendTest do
   end
   test "no trouble produce" do
     normal_start([{'b1',9092},{'b2',9092}], "log", 0) do
-      home=self
+      home=self()
       :meck.expect(:brod, :produce_sync, fn(_clientname, _topic, _partition, _key, output) ->
         # get the timestamp...
         dec=Poison.decode!(output)
@@ -54,7 +54,7 @@ defmodule LoggerKafkaBackendTest do
   test "produce with trouble, wrong topic" do
     # no matter what produce returns, we should have :ok from the GenEvent server
     normal_start([{'b1',9092},{'b2',9092}], "log", 0) do
-      home=self
+      home=self()
       :meck.expect(:brod, :produce_sync, fn(_clientname, _topic, _partition, _key, output) ->
         # get the timestamp...
         dec=Poison.decode!(output)
@@ -70,14 +70,14 @@ defmodule LoggerKafkaBackendTest do
         err -> flunk( "Received something unexpected from :meck.produce_sync: #{inspect err}" )
       end
 
-      assert last_error == "producer_not_found, wrong topic"
+      assert last_error() == "producer_not_found, wrong topic"
     end
   end
 
   test "produce with trouble, wrong partition" do
     # no matter what produce returns, we should have :ok from the GenEvent server
     normal_start([{'b1',9092},{'b2',9092}], "log", 0) do
-      home=self
+      home=self()
       :meck.expect(:brod, :produce_sync, fn(_clientname, _topic, _partition, _key, output) ->
         # get the timestamp...
         dec=Poison.decode!(output)
@@ -93,14 +93,14 @@ defmodule LoggerKafkaBackendTest do
         err -> flunk( "Received something unexpected from :meck.produce_sync: #{inspect err}" )
       end
 
-      assert last_error == "producer_not_found, wrong partition"
+      assert last_error() == "producer_not_found, wrong partition"
     end
   end
 
   test "produce with trouble, client down" do
     # no matter what produce returns, we should have :ok from the GenEvent server
     normal_start([{'b1',9092},{'b2',9092}], "log", 0) do
-      home=self
+      home=self()
       :meck.expect(:brod, :produce_sync, fn(_clientname, _topic, _partition, _key, output) ->
         # get the timestamp...
         dec=Poison.decode!(output)
@@ -116,7 +116,7 @@ defmodule LoggerKafkaBackendTest do
         err -> flunk( "Received something unexpected from :meck.produce_sync: #{inspect err}" )
       end
 
-      assert last_error == "client down"
+      assert last_error() == "client down"
     end
   end
 

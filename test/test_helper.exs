@@ -15,9 +15,9 @@ defmodule TestHelpers do
       assert :meck.called(:brod, :start_client, [unquote(brokers), :lkb_bc, [reconnect_cool_down_seconds: 10]])
       assert :meck.called(:brod, :start_producer, [:lkb_bc, unquote(topic), []])
 
-      assert brokers == unquote(brokers)
-      assert topic == unquote(topic)
-      assert partition == unquote(partition)
+      assert brokers() == unquote(brokers)
+      assert topic() == unquote(topic)
+      assert partition() == unquote(partition)
 
       unquote(body)
 
