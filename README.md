@@ -1,4 +1,6 @@
 # LoggerKafkaBackend
+[![Build Status](https://travis-ci.org/jdalberg/logger_kafka_backend.svg?branch=master)](https://travis-ci.org/jdalberg/logger_kafka_backend)
+[![Hex.pm Version](http://img.shields.io/hexpm/v/logger_kafka_backend_ex.svg?style=flat)](https://hex.pm/packages/logger_kafka_backend)
 
 A backend for the Elixir `Logger` module that speaks Apache Kafka. It relies on the
 erland `brod` module to do the actual Kafka integration.
