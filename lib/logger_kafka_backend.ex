@@ -16,6 +16,9 @@ defmodule LoggerKafkaBackend do
   @default_format "$metadata[$date $time] $level: $message"
 
   def init({__MODULE__, name}) do
+    # In case the order in :applications got screwed up somehow, in
+    # a way that results in :brod not being started before :logger
+    Application.ensure_all_started(:brod)
     configure(name, [])
   end
 

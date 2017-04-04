@@ -1,3 +1,7 @@
+2017-4-4 - 0.1.12
+        :brod needs to be started in init explicitly in case someone forgot
+        to get it running before logger starts its Watcher
+
 0.1.9   More modern brod, and testcase minor updates.
 
 0.1.8   The Kafka key needed to be a configurable part of the metadata. Now configurable
