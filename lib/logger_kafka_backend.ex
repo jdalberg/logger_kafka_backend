@@ -83,7 +83,7 @@ defmodule LoggerKafkaBackend do
   defp log_event(level, msg, {date, time} = ts, md, %{brokers: brokers, topic: topic, partition: partition, meta_key: meta_key} = state) when is_list(brokers) and is_binary(topic) and is_integer(partition) do
     if length(brokers)>0 and topic != "" do
       output = if state.use_json do
-        timestamp = "#{Logger.Utils.format_date(date)} #{Logger.Utils.format_time(time)}"
+        timestamp = "#{Logger.Formatter.format_date(date)} #{Logger.Formatter.format_time(time)}"
         case Poison.encode(%{time: timestamp, meta: Enum.into(take_metadata(md, state.metadata), %{}), level: level, message: to_string(msg)}) do
           {:ok,encoded} -> encoded
           {:error,error} -> "Encode failed: #{inspect error}"
