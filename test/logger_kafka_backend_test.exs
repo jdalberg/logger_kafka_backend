@@ -138,22 +138,22 @@ defmodule LoggerKafkaBackendTest do
   end
 
   defp brokers do
-    {:ok, brokers} = GenEvent.call(Logger, @backend, :brokers)
+    {:ok, brokers} = :gen_event.call(Logger, @backend, :brokers)
     brokers
   end
 
   defp topic do
-    {:ok, topic} = GenEvent.call(Logger, @backend, :topic)
+    {:ok, topic} = :gen_event.call(Logger, @backend, :topic)
     topic
   end
 
   defp partition do
-    {:ok, partition} = GenEvent.call(Logger, @backend, :partition)
+    {:ok, partition} = :gen_event.call(Logger, @backend, :partition)
     partition
   end
 
   defp last_error do
-    {:ok, err} = GenEvent.call(Logger, @backend, :last_error)
+    {:ok, err} = :gen_event.call(Logger, @backend, :last_error)
     err
   end
 

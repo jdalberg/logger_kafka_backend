@@ -2,3 +2,4 @@ _build
 deps
 mix.lock
 *.swp
+.elixir_ls

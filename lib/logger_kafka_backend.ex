@@ -1,12 +1,12 @@
 defmodule LoggerKafkaBackend do
+  @behaviour :gen_event
+
   @moduledoc"""
 
   This is a Logger backend that can spit out logs
   to kafka in json format.
 
   """
-
-  use GenEvent
 
   @type brokers   :: [String.t]
   @type format    :: String.t
@@ -83,8 +83,20 @@ defmodule LoggerKafkaBackend do
   defp log_event(level, msg, {date, time} = ts, md, %{brokers: brokers, topic: topic, partition: partition, meta_key: meta_key} = state) when is_list(brokers) and is_binary(topic) and is_integer(partition) do
     if length(brokers)>0 and topic != "" do
       output = if state.use_json do
-        timestamp = "#{Logger.Formatter.format_date(date)} #{Logger.Formatter.format_time(time)}"
-        case Poison.encode(%{time: timestamp, meta: Enum.into(take_metadata(md, state.metadata), %{}), level: level, message: to_string(msg)}) do
+        logdata = Map.merge( %{
+          time: "#{Logger.Formatter.format_date(date)} #{Logger.Formatter.format_time(time)}",
+          meta: Enum.into(take_metadata(md, state.metadata), %{}),
+          level: level,
+          message: to_string(msg)
+        },
+        if state.log_hostname do
+          {:ok, hostname} = :inet.gethostname;
+          %{host: hostname}
+        else
+          %{}
+        end)
+
+        case Poison.encode(logdata) do
           {:ok,encoded} -> encoded
           {:error,error} -> "Encode failed: #{inspect error}"
         end
@@ -150,7 +162,7 @@ defmodule LoggerKafkaBackend do
   end
 
   defp configure(name, opts) do
-    state = %{name: nil, brokers: [], last_error: nil, topic: nil, partition: nil, format: nil, level: nil, metadata: nil, metadata_filter: nil, use_json: false, meta_key: :kafka_key}
+    state = %{name: nil, brokers: [], last_error: nil, topic: nil, partition: nil, format: nil, level: nil, metadata: nil, metadata_filter: nil, use_json: false, meta_key: :kafka_key, log_hostname: false}
     configure(name, opts, state)
   end
 
@@ -168,12 +180,13 @@ defmodule LoggerKafkaBackend do
     partition       = Keyword.get(opts, :partition, 0)
     metadata_filter = Keyword.get(opts, :metadata_filter)
     use_json        = Keyword.get(opts, :use_json, true)
+    log_hostname    = Keyword.get(opts, :log_hostname, false)
     meta_key        = Keyword.get(opts, :meta_key, :kafka_key)
 
     {eb,le}=case brokers do
       nil -> {[],:ok} # configure with no brokers is ok.
       brokers when is_list(brokers) and length(brokers) > 0 ->
-        erl_brokers=Enum.map(brokers,fn(e) -> {to_char_list(elem(e,0)),elem(e,1)} end)
+        erl_brokers=Enum.map(brokers,fn(e) -> {to_charlist(elem(e,0)),elem(e,1)} end)
         last_error=if topic != nil do
           case :brod.start_client(erl_brokers, :lkb_bc, [{:reconnect_cool_down_seconds, 10}]) do # TODO: make client options configurable
             :ok -> # start a producer on it, should always be ok...
@@ -193,7 +206,7 @@ defmodule LoggerKafkaBackend do
       _-> {[],{:error,"unknown format of the brokers configuration parameter"}}
     end
 
-    {le,%{state | name: name, brokers: eb, topic: to_string(topic), partition: partition, last_error: le, format: format, level: level, metadata: metadata, metadata_filter: metadata_filter, use_json: use_json, meta_key: meta_key}}
+    {le,%{state | name: name, brokers: eb, topic: to_string(topic), partition: partition, last_error: le, format: format, level: level, metadata: metadata, metadata_filter: metadata_filter, use_json: use_json, meta_key: meta_key, log_hostname: log_hostname}}
   end
 
 end
