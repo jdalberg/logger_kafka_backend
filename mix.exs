@@ -3,7 +3,7 @@ defmodule LoggerKafkaBackend.Mixfile do
 
   def project do
     [app: :logger_kafka_backend,
-     version: "0.1.15",
+     version: "0.1.16",
      elixir: "~> 1.6.5",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,

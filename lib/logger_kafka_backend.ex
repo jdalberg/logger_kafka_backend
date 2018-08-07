@@ -91,7 +91,7 @@ defmodule LoggerKafkaBackend do
         },
         if state.log_hostname do
           {:ok, hostname} = :inet.gethostname;
-          %{host: hostname}
+          %{host: to_string(hostname)}
         else
           %{}
         end)
