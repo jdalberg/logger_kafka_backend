@@ -3,7 +3,7 @@ defmodule LoggerKafkaBackend.Mixfile do
 
   def project do
     [app: :logger_kafka_backend,
-     version: "0.1.18",
+     version: "0.1.19",
      elixir: "~> 1.7",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
@@ -19,7 +19,7 @@ defmodule LoggerKafkaBackend.Mixfile do
   defp deps do
     [
      {:brod, "~> 2.3.3"},
-     {:poison, "~> 4.0.1"},
+     {:poison, "~> 3"},
      {:meck, "~> 0.8.2", only: :test}, # To make test emulate calls to brod
      {:ex_doc, "~> 0.19", only: :dev, runtime: false}
     ]
